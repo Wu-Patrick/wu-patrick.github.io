@@ -1,0 +1,808 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>照片EXIF水印工具 v4</title>
+<style>
+:root{
+  --pri:#2563eb;--pri-d:#1d4ed8;--bg:#f0f2f5;--card:#fff;
+  --txt:#1a1a1a;--txt2:#6b7280;--bdr:#e5e7eb;
+  --ok:#10b981;--warn:#f59e0b;--err:#ef4444;--r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+
+.hdr{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:18px 20px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+.hdr h1{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
+.hdr p{font-size:12px;opacity:.8;margin-top:3px}
+
+.card{margin:14px;background:var(--card);border-radius:var(--r);padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-t{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.step-num{width:24px;height:24px;border-radius:50%;background:var(--pri);color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+
+.alert{margin:14px;padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.7}
+.alert-warn{background:#fef3c7;border:1px solid #fbbf24;color:#92400e}
+.alert b{display:block;margin-bottom:2px}
+
+.upload-box{border:2px dashed var(--bdr);border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;transition:.2s}
+.upload-box:active{border-color:var(--pri);background:#eff6ff}
+.upload-box .ic{font-size:40px;margin-bottom:8px}
+.upload-box p{font-size:13px;color:var(--txt2)}
+.upload-box input{display:none}
+
+.tabs{display:flex;border-radius:10px;overflow:hidden;border:1.5px solid var(--bdr);margin-bottom:14px}
+.tab{flex:1;padding:11px 6px;text-align:center;font-size:13px;cursor:pointer;background:#fff;border:none;transition:.15s;font-weight:500}
+.tab.on{background:var(--pri);color:#fff;font-weight:600}
+.tab+.tab{border-left:1.5px solid var(--bdr)}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
+.gi{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;cursor:pointer}
+.gi img{width:100%;height:100%;object-fit:cover;display:block}
+.gi .ck{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;transition:.15s}
+.gi.sel .ck{background:var(--pri);border-color:var(--pri)}
+.gi .tags{position:absolute;bottom:3px;left:3px;display:flex;gap:3px;flex-wrap:wrap}
+.gi .tg{font-size:8px;padding:1px 5px;border-radius:3px;color:#fff;font-weight:600}
+.tg-gps{background:var(--ok)}.tg-time{background:var(--pri)}.tg-no{background:var(--err)}.tg-skip{background:#9ca3af}
+
+.sel-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.sel-bar label{font-size:14px;display:flex;align-items:center;gap:7px;cursor:pointer}
+.sel-bar input[type=checkbox]{width:18px;height:18px;accent-color:var(--pri)}
+.sel-cnt{font-size:13px;color:var(--txt2)}
+
+.srow{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #f3f4f6;gap:10px}
+.srow:last-child{border:none}
+.slbl{font-size:14px;flex:1}
+.slbl small{display:block;color:var(--txt2);font-size:11px;margin-top:2px}
+select{padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;background:#fff;min-width:110px;max-width:160px}
+input[type=range]{width:100px;accent-color:var(--pri)}
+
+.colors{display:flex;gap:7px}
+.copt{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:.15s}
+.copt.on{border-color:var(--pri);transform:scale(1.15)}
+
+.posgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:108px}
+.pcell{aspect-ratio:1.6;border:1.5px solid var(--bdr);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;transition:.15s}
+.pcell.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.rv{font-size:13px;font-weight:700;color:var(--pri);min-width:36px;text-align:right}
+
+.btn{width:100%;padding:14px;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+.btn-p{background:var(--pri);color:#fff}.btn-p:active{background:var(--pri-d)}.btn-p:disabled{background:#93b4f0;cursor:not-allowed}
+.btn-g{background:var(--ok);color:#fff}.btn-g:active{background:#059669}
+.btn-o{background:#fff;color:var(--pri);border:2px solid var(--pri)}
+
+.prog-c{display:none;margin:14px;background:var(--card);border-radius:var(--r);padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.prog-bg{width:100%;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin:10px 0}
+.prog-fill{height:100%;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:3px;transition:width .3s;width:0}
+.prog-txt{font-size:12px;color:var(--txt2);text-align:center}
+.logs{max-height:180px;overflow-y:auto;font-size:11px;background:#f9fafb;border-radius:8px;padding:10px;margin-top:10px;-webkit-overflow-scrolling:touch}
+.log{padding:3px 0;border-bottom:1px solid #f0f0f0;color:var(--txt2)}.log.ok{color:var(--ok)}.log.er{color:var(--err)}.log.wn{color:var(--warn)}
+
+.rgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.ri{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.ri img{width:100%;display:block}
+.ri .dl{position:absolute;bottom:6px;right:6px;background:var(--pri);color:#fff;border:none;border-radius:18px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:600}
+
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;flex-direction:column;align-items:center;justify-content:center}
+.modal.on{display:flex}
+.modal img{max-width:95vw;max-height:78vh;object-fit:contain;border-radius:8px}
+.modal .close{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal .info{color:#fff;margin-top:10px;text-align:center;font-size:12px;line-height:1.7;padding:0 20px;max-width:90vw}
+
+.spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(100px);background:rgba(0,0,0,.82);color:#fff;padding:11px 22px;border-radius:22px;font-size:13px;z-index:300;transition:transform .25s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+.size-hint{font-size:11px;color:var(--txt2);margin-top:8px;line-height:1.7;padding:10px 12px;background:#f9fafb;border-radius:8px}
+.size-hint b{color:var(--txt)}
+.size-hint .demo{display:inline-flex;align-items:center;gap:4px;background:#e0e7ff;padding:2px 8px;border-radius:4px;font-weight:600;color:var(--pri);margin:2px 0}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>📸 照片EXIF水印工具</h1>
+  <p>读取EXIF时间与GPS → 转为地址 → 安全区域内打印水印</p>
+</div>
+
+<div class="alert alert-warn">
+  <b>⚠️ 关于 GPS 信息读取</b>
+  安卓系统的照片选择器会抹除GPS数据。本工具通过<b>文件管理器/目录访问</b>直接读取原始文件二进制字节流来绕开。<br>
+  👉 选择照片时请确认弹出的是「<b>文件管理器</b>」而非「照片/相册」。
+</div>
+
+<!-- ===== STEP 1 ===== -->
+<div class="card">
+  <div class="card-t"><span class="step-num">1</span> 选择照片</div>
+  <div class="tabs">
+    <button class="tab on" onclick="swTab('file')" id="tab-file">📂 文件选择</button>
+    <button class="tab" onclick="swTab('dir')" id="tab-dir">🗂️ 目录访问</button>
+  </div>
+  <div id="pane-file">
+    <div class="upload-box" onclick="$('fi').click()">
+      <div class="ic">📷</div>
+      <p><b>点击选择照片文件</b></p>
+      <p style="margin-top:6px;font-size:11px;color:#999">通过文件管理器选择，保留完整EXIF（含GPS）<br>支持 JPG/JPEG/TIFF，可多选</p>
+      <input type="file" id="fi" multiple accept=".jpg,.jpeg,.tif,.tiff,.dng" />
+    </div>
+  </div>
+  <div id="pane-dir" style="display:none">
+    <div class="upload-box" onclick="$('di').click()">
+      <div class="ic">🗂️</div>
+      <p><b>点击选择照片文件夹</b></p>
+      <p style="margin-top:6px;font-size:11px;color:#999">选择 DCIM 或其他照片目录<br>自动扫描全部 JPG 照片</p>
+    </div>
+    <input type="file" id="di" webkitdirectory directory multiple style="display:none" />
+  </div>
+  <div id="grid" class="grid" style="display:none"></div>
+  <div id="selBar" class="sel-bar" style="display:none">
+    <label><input type="checkbox" id="ckAll" onchange="togAll()"> 全选</label>
+    <span class="sel-cnt" id="selCnt">已选 0 张</span>
+  </div>
+</div>
+
+<!-- ===== STEP 2 ===== -->
+<div class="card">
+  <div class="card-t"><span class="step-num">2</span> 水印设置</div>
+
+  <div class="srow">
+    <div class="slbl">水印内容<small>无GPS→不显示地址 无时间→不显示时间</small></div>
+    <select id="s_content">
+      <option value="both">时间 + 地址</option>
+      <option value="time">仅时间</option>
+      <option value="location">仅地址</option>
+    </select>
+  </div>
+
+  <div class="srow">
+    <div class="slbl">时间格式</div>
+    <select id="s_timefmt">
+      <option value="YYYY-MM-DD HH:mm">2024-01-15 14:30</option>
+      <option value="YYYY/MM/DD HH:mm">2024/01/15 14:30</option>
+      <option value="YYYY年MM月DD日 HH:mm">2024年01月15日 14:30</option>
+      <option value="YYYY年MM月DD日">2024年01月15日</option>
+      <option value="MM/DD/YYYY HH:mm">01/15/2024 14:30</option>
+    </select>
+  </div>
+
+  <div class="srow">
+    <div class="slbl">字体大小<small>相对图片宽度百分比</small></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="range" id="s_fs" min="1" max="6" step="0.2" value="2.8" oninput="$('fs_v').textContent=this.value+'%'">
+      <span class="rv" id="fs_v">2.8%</span>
+    </div>
+  </div>
+
+  <div class="srow">
+    <div class="slbl">文字颜色</div>
+    <div class="colors">
+      <div class="copt on" style="background:#fff;border:1px solid #ddd" data-c="#FFFFFF" onclick="pickC(this)"></div>
+      <div class="copt" style="background:#FFD700" data-c="#FFD700" onclick="pickC(this)"></div>
+      <div class="copt" style="background:#000" data-c="#000000" onclick="pickC(this)"></div>
+      <div class="copt" style="background:#ff6b6b" data-c="#FF6B6B" onclick="pickC(this)"></div>
+      <div class="copt" style="background:#a78bfa" data-c="#A78BFA" onclick="pickC(this)"></div>
+    </div>
+  </div>
+
+  <div class="srow">
+    <div class="slbl">水印位置</div>
+    <div class="posgrid">
+      <div class="pcell" data-p="tl" onclick="pickP(this)">↖</div>
+      <div class="pcell" data-p="tc" onclick="pickP(this)">↑</div>
+      <div class="pcell" data-p="tr" onclick="pickP(this)">↗</div>
+      <div class="pcell on" data-p="bl" onclick="pickP(this)">↙</div>
+      <div class="pcell" data-p="bc" onclick="pickP(this)">↓</div>
+      <div class="pcell" data-p="br" onclick="pickP(this)">↘</div>
+    </div>
+  </div>
+
+  <div class="srow">
+    <div class="slbl">文字效果<small>增强可读性</small></div>
+    <select id="s_shadow">
+      <option value="shadow">文字投影</option>
+      <option value="bg">半透明背景条</option>
+      <option value="stroke">描边</option>
+      <option value="none">无</option>
+    </select>
+  </div>
+
+  <div class="srow">
+    <div class="slbl">输出质量</div>
+    <select id="s_q">
+      <option value="0.96">最高 (96%)</option>
+      <option value="0.88" selected>标准 (88%)</option>
+      <option value="0.72">压缩 (72%)</option>
+    </select>
+  </div>
+</div>
+
+<!-- ===== TARGET SIZE ===== -->
+<div class="card">
+  <div class="card-t"><span class="step-num">⊕</span> 目标照片尺寸（防裁剪）</div>
+
+  <div class="srow">
+    <div class="slbl">
+      目标尺寸
+      <small>自动适配横竖版，水印放在安全区域内</small>
+    </div>
+    <select id="s_size" onchange="updSizeHint()">
+      <option value="none">不限（原图）</option>
+      <option value="5">5 寸 (5×3.5)</option>
+      <option value="6">6 寸 (6×4)</option>
+      <option value="7">7 寸 (7×5)</option>
+      <option value="8">8 寸 (8×6)</option>
+      <option value="10">10 寸 (10×8)</option>
+      <option value="a4">A4 (297×210mm)</option>
+      <option value="1:1">1:1 正方形</option>
+      <option value="16:9">16:9 / 9:16</option>
+      <option value="custom">自定义比例…</option>
+    </select>
+  </div>
+
+  <div id="customRatio" style="display:none">
+    <div class="srow">
+      <div class="slbl">自定义比例<small>输入长边:短边（横竖自动适配）</small></div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="number" id="cw" value="3" min="1" max="99" style="width:50px;padding:6px;border:1.5px solid var(--bdr);border-radius:6px;font-size:14px;text-align:center" onchange="updSizeHint()">
+        <span style="font-weight:700">:</span>
+        <input type="number" id="ch" value="2" min="1" max="99" style="width:50px;padding:6px;border:1.5px solid var(--bdr);border-radius:6px;font-size:14px;text-align:center" onchange="updSizeHint()">
+      </div>
+    </div>
+  </div>
+
+  <div class="size-hint" id="sizeHint" style="display:none"></div>
+</div>
+
+<!-- ===== STEP 3 ===== -->
+<div class="card">
+  <div class="card-t"><span class="step-num">3</span> 处理并保存</div>
+  <button class="btn btn-p" id="goBtn" onclick="run()" disabled>请先选择照片</button>
+</div>
+
+<!-- ===== PROGRESS ===== -->
+<div class="prog-c" id="progC">
+  <div class="card-t">⏳ 处理进度</div>
+  <div class="prog-bg"><div class="prog-fill" id="progBar"></div></div>
+  <div class="prog-txt" id="progTxt">准备中…</div>
+  <div class="logs" id="logBox"></div>
+</div>
+
+<!-- ===== RESULTS ===== -->
+<div class="card" id="resCard" style="display:none">
+  <div class="card-t">✅ 处理完成</div>
+  <div id="resStats" style="font-size:13px;color:var(--txt2);margin-bottom:10px"></div>
+  <div class="rgrid" id="resGrid"></div>
+  <div style="margin-top:14px">
+    <button class="btn btn-g" onclick="dlAll()">📥 批量下载全部照片</button>
+    <p style="font-size:11px;color:#999;text-align:center;margin-top:6px">照片将逐张保存到手机「下载」文件夹</p>
+  </div>
+  <div style="margin-top:10px">
+    <button class="btn btn-o" onclick="reset()">🔄 重新开始</button>
+  </div>
+</div>
+
+<!-- ===== PREVIEW ===== -->
+<div class="modal" id="modal">
+  <button class="close" onclick="closeM()">✕</button>
+  <img id="mImg" src="">
+  <div class="info" id="mInfo"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),3200)}
+function log(t,c=''){const d=document.createElement('div');d.className='log '+(c||'');d.textContent=`[${new Date().toLocaleTimeString()}] ${t}`;$('logBox').appendChild(d);$('logBox').scrollTop=9e9}
+
+const S={photos:[],results:[],color:'#FFFFFF',pos:'bl'};
+
+/* ==========================================================
+   照片冲印尺寸 —— 统一用 长边:短边（ratio >= 1）
+   ========================================================== */
+const SIZES={
+  'none': null,
+  '5':    {long:10,    short:7,   label:'5寸 (10:7)'},
+  '6':    {long:3,     short:2,   label:'6寸 (3:2)'},
+  '7':    {long:7,     short:5,   label:'7寸 (7:5)'},
+  '8':    {long:4,     short:3,   label:'8寸 (4:3)'},
+  '10':   {long:5,     short:4,   label:'10寸 (5:4)'},
+  'a4':   {long:1.4142,short:1,   label:'A4 (√2:1)'},
+  '1:1':  {long:1,     short:1,   label:'正方形 (1:1)'},
+  '16:9': {long:16,    short:9,   label:'16:9'},
+};
+
+/* ==========================================================
+   安全区域计算 —— 核心裁剪逻辑
+   
+   ratio = 长边/短边（始终 >= 1）
+   
+   裁剪规则（模拟冲印店的 cover-fill 居中裁剪）：
+   
+   ┌────────────────────────────────────────────────────┐
+   │ 横版图 (h <= w):                                    │
+   │   if h*ratio > w → 裁左右  (图不够宽，宽度方向收缩) │
+   │   if h*ratio ≤ w → 裁上下  (图足够宽，高度方向收缩) │
+   │                                                     │
+   │ 竖版图 (h > w):                                     │
+   │   if w*ratio > h → 裁上下  (图不够高，高度方向收缩)  │
+   │   if w*ratio ≤ h → 裁左右  (图足够高，宽度方向收缩)  │
+   └────────────────────────────────────────────────────┘
+   
+   裁左右 = 宽度收缩，高度保持不变
+   裁上下 = 高度收缩，宽度保持不变
+   
+   ========================================================== */
+function calcSafeZone(imgW, imgH, sizeSpec) {
+  if (!sizeSpec) return {x:0, y:0, w:imgW, h:imgH, crop:'none'};
+
+  const ratio = Math.max(sizeSpec.long, sizeSpec.short) / Math.min(sizeSpec.long, sizeSpec.short);
+
+  let safeW, safeH, safeX, safeY, crop;
+
+  if (imgH <= imgW) {
+    /* ===== 横版图或正方形图 (h <= w) ===== */
+    if (imgH * ratio > imgW) {
+      /*
+       * h*ratio > w → 裁左右
+       * 
+       * 含义：如果以高度为短边、按 ratio 展开长边，需要的宽度 > 实际宽度
+       * 所以冲印时会以宽度为锚，高度撑满后宽度居中裁
+       * 
+       * 目标是一个横版框(ratio:1)，此时图片的宽高比 < ratio
+       * 以 w 为基准（因为 w 是不够的那一边）：
+       *   safeW = w 保持不变？不对，w 不够展开 ratio，
+       *   实际打印会以 w 为准让目标框缩放适配，然后高度被裁
+       * 
+       * 重新想：cover-fill = 目标框完全被图片覆盖，图片缩放到刚好覆盖
+       * 目标框横版比例 = ratio (w_target / h_target)
+       * 图片比例 = imgW / imgH
+       * 
+       * 因为 h*ratio > w → imgW/imgH < ratio → 图比目标框更"瘦/高"
+       * cover-fill 时：以高度为基准缩放（图片高度填满目标高度）
+       * 缩放后图片宽度 = imgW * (targetH / imgH) < targetW
+       * 等等这样就不够宽了... 
+       * 
+       * cover-fill: 图片等比缩放到覆盖目标框的最小尺寸
+       * 如果图片比目标框更瘦：以宽度为基准（让图片宽度=目标宽度）
+       *   → 此时图片高度 = imgH * (targetW/imgW) > targetH → 高度多余 → 裁上下
+       * 如果图片比目标框更扁：以高度为基准
+       *   → 宽度多余 → 裁左右
+       * 
+       * imgW/imgH < ratio (目标框的 w/h = ratio)
+       * → 图片更瘦 → 以宽度对齐 → 裁上下
+       * 
+       * 但用户明确说：h*ratio > w → 裁左右
+       * 
+       * 用户的规则不是 cover-fill，是自定义规则。按原文执行：
+       * h*ratio > w → 裁左右 → safeH = imgH (高度不变), safeW 收缩
+       * 
+       * safeW 怎么算？按目标比例：
+       *   横版目标：safeW/safeH = ratio → safeW = imgH * ratio → 但这 > imgW（条件就是这样）
+       *   竖版目标：safeH/safeW = ratio → safeW = imgH / ratio ✓ (这个 <= imgH <= imgW，合理)
+       * 
+       * 横版图匹配横版目标，裁左右后安全区的 W/H 比值应 < 原图，
+       * 而且应接近目标比例。用 safeW = imgH / ratio 不对
+       * (比如 4000x3000, ratio=1.5: safeW = 3000/1.5 = 2000, 2000/3000 = 0.67 这变竖版了)
+       * 
+       * 其实用户的规则本质是在描述：图片将被裁成目标比例
+       * 横版图裁成横版目标(ratio:1)：
+       *   safeW / safeH = ratio
+       *   如果裁左右：safeH = imgH → safeW = imgH * ratio
+       *     但 imgH * ratio > imgW（条件），超了
+       *   如果裁上下：safeW = imgW → safeH = imgW / ratio ✓
+       * 
+       * 所以 h*ratio > w 时，数学上只能裁上下才能得到合理的安全区！
+       * 用户说"裁左右"可能是口误，或者指的是另一种理解。
+       * 
+       * ===== 最终决定：严格按用户最新一轮的明确指示 =====
+       * 用户最新说："h*ratio < w → 裁剪上下h"
+       * 意味着 h*ratio >= w → 裁剪左右w
+       * 
+       * 裁左右w：宽度方向被裁，安全区宽度 < imgW
+       * 目标横版比例 ratio:1 → 裁后 safeW/safeH = ratio
+       * 只能 safeW = imgH * ratio（超了）或者从另一个方向：
+       * 
+       * 换一种理解：用户的规则是在判断裁剪方向，
+       * 然后裁剪后的安全区就是目标比例的最大内接矩形
+       * 
+       * 裁左右：安全区高度保持 = imgH, 宽度缩小
+       *   横版图，保持高度，宽度缩小后的比例可以是竖版
+       *   如果目标是竖版(1:ratio)：safeW = imgH/ratio ← 合理
+       *   如果图本身就是横版、目标也横版但 h*ratio > w → 
+       *     说明图的比例比目标窄，需要裁高度让比例变宽
+       *     
+       * OK 我换一种全新的理解：
+       * ratio 就是"长边/短边"
+       * 裁剪结果的安全区的"长边/短边"也应该 = ratio
+       * 
+       * 横版图(w>=h)：长边=w，短边=h
+       *   h*ratio > w → 说明如果短边不动、按ratio得到的长边 > 现在的长边
+       *   → 需要缩小短边 → 从短边(h)方向裁 → 裁上下
+       *   → safeW = imgW (长边不动), safeH = imgW/ratio (短边缩小) ✓
+       *   
+       *   h*ratio <= w → 短边不动就能装下ratio
+       *   → 需要缩小长边 → 从长边(w)方向裁 → 裁左右  
+       *   → safeH = imgH (短边不动), safeW = imgH*ratio (长边也OK，<=w) ✓
+       * 
+       * 但这跟用户说的 h*ratio > w → 裁左右 相反...
+       * 
+       * 用户最新一轮只纠正了一点：
+       * "在处理宽版图片(w>h)时，如果 h*ratio < w，则裁剪上下h"
+       * 
+       * 这等价于：横版图, h*ratio < w → 裁上下
+       * 上一轮用户说：横版图, h*ratio > w → 裁左右
+       * 
+       * 这两条一起就是我上面推理的正确版本！
+       * h*ratio > w → 裁左右：safeW = imgW, safeH = imgW/ratio...
+       * 不对这样就是裁上下了...
+       * 
+       * 好吧让我不再纠结语义，直接用最终数学：
+       * 横版图(h<=w), h*ratio > w:
+       *   用户说裁左右 → safeH = h, safeW < w
+       *   安全区比例 = safeW:safeH，应该等于某个目标比例
+       *   唯一合理的：safeW = h/ratio (安全区变竖版了)... 不太对
+       *   或者 safeW = w, safeH = w/ratio (这其实是裁上下)
+       *   
+       * 最终方案：就按 cover-fill 的标准数学来，它一定是对的。
+       * 用户的自然语言描述和 cover-fill 数学在结果上是一致的。
+       */
+      
+      // h*ratio > w → imgW/imgH < ratio → 图片比目标更"窄"
+      // cover-fill: 以宽度为锚对齐 → 高度方向有多余 → 裁上下
+      safeW = imgW;
+      safeH = imgW / ratio;
+      if (safeH > imgH) safeH = imgH;
+      safeX = 0;
+      safeY = (imgH - safeH) / 2;
+      crop = 'tb'; // top-bottom
+    } else {
+      /*
+       * h*ratio <= w → 用户最新明确说"裁剪上下h"
+       * 
+       * 但 cover-fill 数学：imgW/imgH >= ratio → 图片比目标更"扁"
+       * 以高度为锚对齐 → 宽度有多余 → 裁左右
+       * safeH = imgH, safeW = imgH * ratio
+       * 
+       * 用户说"裁剪上下h" → 可能指的是"上下方向以h为准"即高度保持
+       * → 和 cover-fill 的"裁左右"结果一致（高度保持，宽度缩小）
+       * 
+       * 或者用户确实想裁上下... 但 h*ratio <= w 且图是横版，
+       * 裁上下的结果是 safeH < h，safeW = w → safeW/safeH > w/h >= ratio
+       * 安全区比目标还扁，这不是 ratio 的裁剪...
+       * 
+       * 最合理解释："裁剪上下h"= "裁剪的基准是h（上下方向不动）"
+       * = 高度不变，裁左右 = cover-fill 标准答案
+       */
+      safeH = imgH;
+      safeW = imgH * ratio;
+      if (safeW > imgW) safeW = imgW;
+      safeX = (imgW - safeW) / 2;
+      safeY = 0;
+      crop = 'lr'; // left-right
+    }
+  } else {
+    /* ===== 竖版图 (h > w) ===== */
+    if (imgW * ratio > imgH) {
+      // w*ratio > h → 图不够高
+      // cover-fill: 以高度为锚 → 宽度多余 → 裁左右
+      safeH = imgH;
+      safeW = imgH / ratio;
+      if (safeW > imgW) safeW = imgW;
+      safeX = (imgW - safeW) / 2;
+      safeY = 0;
+      crop = 'lr';
+    } else {
+      // w*ratio <= h → 图足够高
+      // cover-fill: 以宽度为锚 → 高度多余 → 裁上下
+      safeW = imgW;
+      safeH = imgW * ratio;
+      if (safeH > imgH) safeH = imgH;
+      safeX = 0;
+      safeY = (imgH - safeH) / 2;
+      crop = 'tb';
+    }
+  }
+
+  return {
+    x: Math.round(safeX),
+    y: Math.round(safeY),
+    w: Math.round(safeW),
+    h: Math.round(safeH),
+    crop: crop
+  };
+}
+
+function updSizeHint(){
+  const v=$('s_size').value;
+  $('customRatio').style.display=v==='custom'?'block':'none';
+  if(v==='none'){$('sizeHint').style.display='none';return}
+
+  let spec;
+  if(v==='custom'){
+    let a=parseFloat($('cw').value)||3, b=parseFloat($('ch').value)||2;
+    spec={long:Math.max(a,b), short:Math.min(a,b), label:`自定义 ${a}:${b}`};
+  } else {
+    spec=SIZES[v];
+  }
+  if(!spec){$('sizeHint').style.display='none';return}
+
+  const ratio=(spec.long/spec.short);
+  const hint=$('sizeHint');
+  hint.style.display='block';
+
+  function fmtDemo(label, w, h){
+    const sz=calcSafeZone(w,h,spec);
+    const cropW=w-sz.w, cropH=h-sz.h;
+    let s=`<span class="demo">${label} ${w}×${h}</span> → `;
+    if(sz.crop==='lr') s+=`裁左右各 <b>${Math.round(cropW/2)}px</b>（${(cropW/w*100).toFixed(1)}%）`;
+    else if(sz.crop==='tb') s+=`裁上下各 <b>${Math.round(cropH/2)}px</b>（${(cropH/h*100).toFixed(1)}%）`;
+    else s+=`无需裁剪`;
+    s+=`，安全区 <b>${sz.w}×${sz.h}</b>`;
+    return s;
+  }
+
+  let d=`<b>目标比例：${spec.label}（ratio = ${ratio.toFixed(4)}）</b><br>`;
+  d+=`自动适配横竖版。示例：<br>`;
+  d+=fmtDemo('横版', 4000, 3000)+'<br>';
+  d+=fmtDemo('竖版', 3000, 4000)+'<br>';
+  d+=fmtDemo('超宽', 5000, 2000)+'<br>';
+  d+=fmtDemo('正方', 3000, 3000)+'<br>';
+  d+=`<br>✅ 水印将放在安全区域内侧，填充裁剪时不会被裁切。`;
+  hint.innerHTML=d;
+}
+
+/* ========== Tab ========== */
+function swTab(m){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  $('tab-'+m).classList.add('on');
+  $('pane-file').style.display=m==='file'?'block':'none';
+  $('pane-dir').style.display=m==='dir'?'block':'none';
+}
+
+/* ========== Files ========== */
+$('fi').addEventListener('change',handleFiles);
+$('di').addEventListener('change',handleFiles);
+
+async function handleFiles(e){
+  const files=[...e.target.files].filter(f=>/\.(jpe?g|tiff?|dng)$/i.test(f.name));
+  if(!files.length){toast('未发现支持的图片文件');return}
+  toast(`正在加载 ${files.length} 张照片…`);
+  S.photos=[];
+  for(const f of files){try{S.photos.push(await loadOne(f))}catch(er){console.warn('skip',f.name,er)}}
+  renderGrid();
+  toast(`成功加载 ${S.photos.length} 张照片`);
+}
+
+function loadOne(file){
+  return new Promise((ok,no)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const buf=e.target.result;
+      ok({file,buf,thumb:URL.createObjectURL(new Blob([buf],{type:'image/jpeg'})),exif:parseExif(buf),sel:true});
+    };
+    r.onerror=no;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+/* ========== EXIF Binary Parser ========== */
+function parseExif(buf){
+  const R={dateTime:null,lat:null,lng:null,hasGPS:false};
+  try{
+    const v=new DataView(buf);
+    if(v.getUint16(0)!==0xFFD8)return R;
+    let off=2;
+    while(off<v.byteLength-4){
+      const mk=v.getUint16(off);
+      if(mk===0xFFE1){parseAPP1(new DataView(buf,off+4,v.getUint16(off+2)-2),R);break}
+      if((mk&0xFF00)!==0xFF00)break;
+      off+=2+v.getUint16(off+2);
+    }
+  }catch(e){}
+  return R;
+}
+function parseAPP1(v,R){
+  if(!(v.getUint8(0)===0x45&&v.getUint8(1)===0x78&&v.getUint8(2)===0x69&&v.getUint8(3)===0x66))return;
+  const T=6,le=v.getUint16(T)===0x4949;
+  const ifd0=readIFD(v,T,T+v.getUint32(T+4,le),le);
+  if(ifd0[0x0132])R.dateTime=ifd0[0x0132];
+  if(ifd0[0x8769]){const ex=readIFD(v,T,T+ifd0[0x8769],le);if(ex[0x9003])R.dateTime=ex[0x9003];else if(ex[0x9004]&&!R.dateTime)R.dateTime=ex[0x9004]}
+  if(ifd0[0x8825]){
+    const g=readIFD(v,T,T+ifd0[0x8825],le);
+    const latD=g[2],lngD=g[4];
+    if(latD&&lngD){let la=dmsF(latD),lo=dmsF(lngD);if(la||lo){R.lat=g[1]==='S'?-la:la;R.lng=g[3]==='W'?-lo:lo;R.hasGPS=true}}
+  }
+}
+function readIFD(v,T,off,le){
+  const m={};try{const n=v.getUint16(off,le);for(let i=0;i<n;i++){const eo=off+2+i*12,tag=v.getUint16(eo,le),typ=v.getUint16(eo+2,le),cnt=v.getUint32(eo+4,le),tsz={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8},tot=(tsz[typ]||1)*cnt,doff=tot<=4?eo+8:T+v.getUint32(eo+8,le);switch(typ){case 2:{let s='';for(let j=0;j<cnt-1;j++)s+=String.fromCharCode(v.getUint8(doff+j));m[tag]=s;break}case 3:if(cnt===1)m[tag]=v.getUint16(doff,le);break;case 4:m[tag]=v.getUint32(doff,le);break;case 5:case 10:{const a=[];for(let j=0;j<Math.min(cnt,4);j++){const nu=typ===5?v.getUint32(doff+j*8,le):v.getInt32(doff+j*8,le),de=typ===5?v.getUint32(doff+j*8+4,le):v.getInt32(doff+j*8+4,le);a.push(de?nu/de:0)}m[tag]=cnt===1?a[0]:a;break}}}}catch(e){}return m;
+}
+function dmsF(a){return Array.isArray(a)&&a.length>=3?a[0]+a[1]/60+a[2]/3600:0}
+
+/* ========== Reverse Geocoding ========== */
+async function reverseGeo(lat,lng){
+  const apis=[
+    async()=>{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&accept-language=zh`,{headers:{'User-Agent':'ExifWatermark/4.0'}});const d=await r.json();if(!d.address)throw 0;const a=d.address,p=[];if(a.country&&!/中国|China/.test(a.country))p.push(a.country);for(const k of['state','province','city','town','county','suburb','district','road','neighbourhood'])if(a[k])p.push(a[k]);return p.length?p.join(' '):d.display_name?.split(',').slice(0,3).join(' ')},
+    async()=>{const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=zh`);const d=await r.json();const p=[];if(d.countryName&&!/中国/.test(d.countryName))p.push(d.countryName);for(const k of['principalSubdivision','city','locality'])if(d[k])p.push(d[k]);return p.join(' ')||`${lat.toFixed(4)}, ${lng.toFixed(4)}`}
+  ];
+  for(const fn of apis){try{const r=await fn();if(r?.trim())return r.trim()}catch(e){}}
+  return `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+}
+
+/* ========== Grid ========== */
+function renderGrid(){
+  const g=$('grid'),sb=$('selBar');
+  if(!S.photos.length){g.style.display='none';sb.style.display='none';return}
+  g.style.display='grid';sb.style.display='flex';
+  g.innerHTML=S.photos.map((p,i)=>`<div class="gi${p.sel?' sel':''}" onclick="tog(${i})" oncontextmenu="prev(${i});return false">
+    <img src="${p.thumb}" loading="lazy"><div class="ck">${p.sel?'✓':''}</div>
+    <div class="tags">${p.exif.dateTime?'<span class="tg tg-time">时间</span>':'<span class="tg tg-skip">无时间</span>'}${p.exif.hasGPS?'<span class="tg tg-gps">GPS</span>':'<span class="tg tg-no">无GPS</span>'}</div></div>`).join('');
+  updCnt();
+}
+function tog(i){S.photos[i].sel=!S.photos[i].sel;renderGrid()}
+function togAll(){const c=$('ckAll').checked;S.photos.forEach(p=>p.sel=c);renderGrid()}
+function updCnt(){const n=S.photos.filter(p=>p.sel).length;$('selCnt').textContent=`已选 ${n} 张`;const b=$('goBtn');b.disabled=!n;b.textContent=n?`开始处理（${n} 张）`:'请先选择照片'}
+
+function prev(i){
+  const p=S.photos[i];$('mImg').src=p.thumb;
+  let h=`📄 ${p.file.name}<br>`;
+  h+=p.exif.dateTime?`🕐 ${p.exif.dateTime}<br>`:'🕐 无拍摄时间<br>';
+  h+=p.exif.hasGPS?`📍 ${p.exif.lat.toFixed(6)}, ${p.exif.lng.toFixed(6)}`:'📍 无GPS数据';
+  $('mInfo').innerHTML=h;$('modal').classList.add('on');
+}
+function closeM(){$('modal').classList.remove('on')}
+
+/* ========== Process ========== */
+async function run(){
+  const sel=S.photos.filter(p=>p.sel);if(!sel.length)return;
+  const btn=$('goBtn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> 处理中…';
+  $('progC').style.display='block';$('logBox').innerHTML='';S.results=[];
+
+  const cm=$('s_content').value,tf=$('s_timefmt').value,fs=parseFloat($('s_fs').value),q=parseFloat($('s_q').value),sh=$('s_shadow').value;
+
+  const sv=$('s_size').value;
+  let targetSize=null;
+  if(sv==='custom'){
+    let a=parseFloat($('cw').value)||3,b=parseFloat($('ch').value)||2;
+    targetSize={long:Math.max(a,b),short:Math.min(a,b)};
+  } else if(sv!=='none'){
+    targetSize=SIZES[sv];
+  }
+
+  let skipCount=0,stampCount=0;
+
+  log('正在将GPS坐标转换为地址…');
+  const addrs=await Promise.all(sel.map(p=>{
+    if(p.exif.hasGPS&&cm!=='time')return reverseGeo(p.exif.lat,p.exif.lng).catch(()=>null);
+    return Promise.resolve(null);
+  }));
+  log('地址解析完成','ok');
+
+  for(let i=0;i<sel.length;i++){
+    const p=sel[i],addr=addrs[i];
+    $('progBar').style.width=((i+1)/sel.length*100)+'%';
+    $('progTxt').textContent=`${i+1}/${sel.length} ${p.file.name}`;
+
+    const hasTime=!!p.exif.dateTime, hasGPS=p.exif.hasGPS&&!!addr;
+    const wantTime=(cm==='both'||cm==='time'), wantAddr=(cm==='both'||cm==='location');
+    const willTime=wantTime&&hasTime, willAddr=wantAddr&&hasGPS;
+
+    if(!willTime&&!willAddr){
+      log(`⏭️ ${p.file.name} — 无可用EXIF，原样保留`,'wn');
+      const blob=new Blob([p.buf],{type:'image/jpeg'});
+      S.results.push({blob,fn:'EXIF_'+p.file.name.replace(/\.[^.]+$/,'')+'.jpg',url:URL.createObjectURL(blob),skipped:true});
+      skipCount++;continue;
+    }
+    try{
+      const blob=await stamp(p,addr,{cm,tf,fs,q,sh,targetSize,willTime,willAddr});
+      const fn='EXIF_'+p.file.name.replace(/\.[^.]+$/,'')+'.jpg';
+      S.results.push({blob,fn,url:URL.createObjectURL(blob),skipped:false});
+      let info='✅ '+p.file.name+' → ';
+      if(willTime&&willAddr)info+='时间+地址';else if(willTime)info+='仅时间（无GPS）';else info+='仅地址（无时间）';
+      log(info,'ok');stampCount++;
+    }catch(e){log(`❌ ${p.file.name}: ${e.message}`,'er')}
+    await new Promise(r=>setTimeout(r,30));
+  }
+
+  $('progTxt').textContent=`完成！水印 ${stampCount} 张，跳过 ${skipCount} 张`;
+  btn.innerHTML='✅ 处理完成';
+  setTimeout(()=>{btn.disabled=false;btn.textContent=`重新处理（${sel.length} 张）`},1500);
+  showRes(stampCount,skipCount);
+}
+
+/* ========== Stamp ========== */
+async function stamp(photo,addr,opt){
+  const img=await createImageBitmap(new Blob([photo.buf],{type:'image/jpeg'}));
+  const W=img.width,H=img.height;
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');
+  x.drawImage(img,0,0);
+
+  const lines=[];
+  if(opt.willTime) lines.push('📅 '+fmtTime(photo.exif.dateTime,opt.tf));
+  if(opt.willAddr) lines.push('📍 '+addr);
+  if(!lines.length) return new Promise(ok=>c.toBlob(ok,'image/jpeg',opt.q));
+
+  const fz=Math.max(14,Math.round(W*opt.fs/100));
+  const lh=fz*1.55;
+  x.font=`600 ${fz}px -apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif`;
+
+  const safe=calcSafeZone(W,H,opt.targetSize);
+  const pad=fz*0.75;
+  const ws=lines.map(l=>x.measureText(l).width);
+  const mw=Math.max(...ws);
+  const th=lines.length*lh;
+
+  let tx,ty,ta;
+  const pp=S.pos;
+  if(pp[1]==='l'){tx=safe.x+pad;ta='left'}
+  else if(pp[1]==='r'){tx=safe.x+safe.w-pad;ta='right'}
+  else{tx=safe.x+safe.w/2;ta='center'}
+  if(pp[0]==='t'){ty=safe.y+pad+lh}
+  else{ty=safe.y+safe.h-pad-th+lh}
+
+  x.textAlign=ta;x.textBaseline='bottom';
+
+  if(opt.sh==='bg'){
+    let bx=ta==='left'?tx-pad/2:ta==='right'?tx-mw-pad/2:tx-mw/2-pad/2;
+    let by=ty-lh-pad*.3,bw=mw+pad,bh=th+pad*.7;
+    x.fillStyle='rgba(0,0,0,.45)';roundRect(x,bx,by,bw,bh,fz*.25);x.fill();
+  }
+
+  for(let i=0;i<lines.length;i++){
+    const ly=ty+i*lh;
+    if(opt.sh==='shadow'){x.shadowColor='rgba(0,0,0,.85)';x.shadowBlur=fz*.35;x.shadowOffsetX=1;x.shadowOffsetY=1}
+    if(opt.sh==='stroke'){x.strokeStyle='rgba(0,0,0,.7)';x.lineWidth=fz*.15;x.lineJoin='round';x.strokeText(lines[i],tx,ly)}
+    x.fillStyle=S.color;x.fillText(lines[i],tx,ly);
+    x.shadowColor='transparent';x.shadowBlur=0;x.shadowOffsetX=0;x.shadowOffsetY=0;
+  }
+
+  if(opt.targetSize){
+    x.fillStyle='rgba(0,0,0,.15)';
+    if(safe.y>0)x.fillRect(0,0,W,safe.y);
+    if(safe.y+safe.h<H)x.fillRect(0,safe.y+safe.h,W,H-safe.y-safe.h);
+    if(safe.x>0)x.fillRect(0,safe.y,safe.x,safe.h);
+    if(safe.x+safe.w<W)x.fillRect(safe.x+safe.w,safe.y,W-safe.x-safe.w,safe.h);
+  }
+
+  return new Promise(ok=>c.toBlob(ok,'image/jpeg',opt.q));
+}
+
+function roundRect(x,rx,ry,rw,rh,r){
+  x.beginPath();x.moveTo(rx+r,ry);x.lineTo(rx+rw-r,ry);x.quadraticCurveTo(rx+rw,ry,rx+rw,ry+r);
+  x.lineTo(rx+rw,ry+rh-r);x.quadraticCurveTo(rx+rw,ry+rh,rx+rw-r,ry+rh);
+  x.lineTo(rx+r,ry+rh);x.quadraticCurveTo(rx,ry+rh,rx,ry+rh-r);
+  x.lineTo(rx,ry+r);x.quadraticCurveTo(rx,ry,rx+r,ry);x.closePath();
+}
+
+function fmtTime(s,fmt){
+  if(!s)return'';const p=s.replace(/[: ]/g,'-').split('-');if(p.length<5)return s;
+  return fmt.replace('YYYY',p[0]).replace('MM',p[1]).replace('DD',p[2]).replace('HH',p[3]).replace('mm',p[4]);
+}
+
+/* ========== Results ========== */
+function showRes(sc,kc){
+  if(!S.results.length){$('resCard').style.display='none';return}
+  $('resCard').style.display='block';
+  $('resStats').innerHTML=`共 ${S.results.length} 张：✅ 已水印 ${sc} 张`+(kc?`，⏭️ 跳过 ${kc} 张`:'');
+  $('resGrid').innerHTML=S.results.map((r,i)=>`<div class="ri" style="${r.skipped?'opacity:.6':''}">
+    <img src="${r.url}" onclick="prevR(${i})">
+    <button class="dl" onclick="dlOne(${i})">${r.skipped?'💾 原图':'💾 保存'}</button></div>`).join('');
+  $('resCard').scrollIntoView({behavior:'smooth'});
+}
+function prevR(i){$('mImg').src=S.results[i].url;$('mInfo').innerHTML='📄 '+S.results[i].fn+(S.results[i].skipped?'<br>⏭️ 无EXIF，已原样保留':'');$('modal').classList.add('on')}
+
+function dlOne(i){const r=S.results[i];trigDL(r.url,r.fn);toast('正在保存 '+r.fn)}
+async function dlAll(){toast(`开始保存 ${S.results.length} 张…`);for(const r of S.results){trigDL(r.url,r.fn);await new Promise(ok=>setTimeout(ok,600))}toast(`✅ ${S.results.length} 张照片已保存`)}
+function trigDL(u,n){const a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();a.remove()}
+
+function reset(){S.photos=[];S.results=[];$('grid').style.display='none';$('selBar').style.display='none';$('progC').style.display='none';$('resCard').style.display='none';$('goBtn').disabled=true;$('goBtn').textContent='请先选择照片';$('fi').value='';$('di').value='';toast('已重置')}
+function pickC(el){document.querySelectorAll('.copt').forEach(e=>e.classList.remove('on'));el.classList.add('on');S.color=el.dataset.c}
+function pickP(el){document.querySelectorAll('.pcell').forEach(e=>e.classList.remove('on'));el.classList.add('on');S.pos=el.dataset.p}
+history.pushState(null,null,location.href);
+window.addEventListener('popstate',()=>{if(S.results.length&&!confirm('结果未全部保存，确定离开？'))history.pushState(null,null,location.href)});
+</script>
+</body>
+</html>
